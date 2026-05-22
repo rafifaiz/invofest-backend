@@ -1,48 +1,92 @@
 import type { Request, Response } from 'express';
-import type { Event } from "../types/event.js";
+import { prisma } from '../lib/db.js';
 
-let events: Event[] = [];
-
-//1. menampilkan semua event 
-export const getAllEvents = (req: Request, res: Response) => {
-    res.json(events);
-};
-
-//2. menyimpan data event baru 
-export const createEvent = (req: Request, res: Response) => {
-    try{
-        const { nama, tanggal, lokasi } = req.body;
-
-        // validasi jika ada data yang belum diisi 
-        if (!nama || !tanggal || !lokasi) {
-            return res.status(500).json({ message: "Nama, tanggal, dan lokasi harus diisi" });
-        }
-
-        // jika data sudah valid, buat event baru
-        const newEvent: Event = {
-            id: events.length + 1,
-            nama,
-            tanggal: new Date(tanggal),
-            lokasi
-        };
-
-        // simpan event baru ke array events
-        events.push(newEvent);
-
-        res.status(201).json(newEvent);
+// 1. GET ALL WITH RELATION DATA
+export const getAllEvents = async (req: Request, res: Response) => {
+    try {
+        const allEvents = await prisma.event.findMany({
+            include: {
+                category: true,
+                pembicara: true
+            },
+            orderBy: { createdAt: "desc" },
+        });
+        res.json(allEvents);
     } catch (error) {
-        // jika terjadi error, kirim response error
-        res
-            .status(500)
-            .json({ message: "Terjadi kesalahan saat membuat event", error });
+        res.status(500).json({ message: "gagal mengambil data event", error });
     }
 };
 
-//3. menampilkan data event berdasarkan id
-export const getEventById = (req: Request, res: Response) => {};
+// 2. CREATE EVENT
+export const createEvent = async (req: Request, res: Response) => {
+    try {
+        const { nama, tanggal, lokasi, description, categoryId, pembicaraId } = req.body;
 
-//4. menupdate data event berdasarkan id
-export const updateEventById = (req: Request, res: Response) => {};
+        if (!nama || !tanggal || !lokasi || !categoryId || !pembicaraId) {
+            return res.status(400).json({ message: "Semua parameter wajib diisi!" });
+        }
 
-//5. menghapus data event berdasarkan id
-export const deleteEventById = (req: Request, res: Response) => {};
+        const newEvent = await prisma.event.create({
+            data: {
+                nama,
+                lokasi,
+                description,
+                tanggal: new Date(tanggal),
+                categoryId: Number(categoryId),
+                pembicaraId: Number(pembicaraId)
+            }
+        });
+        res.status(201).json(newEvent);
+    } catch (error) {
+        res.status(500).json({ message: "Terjadi kesalahan saat membuat event", error });
+    }
+};
+
+// 3. GET EVENT BY ID
+export const getEventById = async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        const eventItem = await prisma.event.findUnique({
+            where: { id },
+            include: { category: true, pembicara: true }
+        });
+        if (!eventItem) return res.status(404).json({ message: "Event tidak ditemukan" });
+        res.json(eventItem);
+    } catch (error) {
+        res.status(500).json({ message: "Terjadi kesalahan server", error });
+    }
+};
+
+// 4. UPDATE EVENT
+export const updateEventById = async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        const { nama, tanggal, lokasi, description, categoryId, pembicaraId } = req.body;
+
+        const updatedEvent = await prisma.event.update({
+            where: { id },
+            data: {
+                nama,
+                lokasi,
+                description,
+                tanggal: new Date(tanggal),
+                categoryId: Number(categoryId),
+                pembicaraId: Number(pembicaraId)
+            }
+        });
+        res.json(updatedEvent);
+    } catch (error) {
+        res.status(404).json({ message: "Event gagal diupdate, pastikan ID valid", error });
+    }
+};
+
+// 5. DELETE EVENT
+export const deleteEventById = async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        const deleted = await prisma.event.delete({ where: { id } });
+        res.json({ message: "Event berhasil dihapus", deleted });
+    } catch (error) {
+        res.status(404).json({ message: "Event gagal dihapus", error });
+    }
+};

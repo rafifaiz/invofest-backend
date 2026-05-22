@@ -1,83 +1,71 @@
 import type { Request, Response } from "express";
-import type { Category } from "../types/category.js";
-
-type CreateCategoryBody = {
-  nama?: string;
-};
-
-let categories: Category[] = [];
+import { prisma } from "../lib/db.js";
 
 // GET ALL
-export const getAllCategories = (req: Request, res: Response) => {
-  res.json(categories);
+export const getAllCategories = async (req: Request, res: Response) => {
+  try {
+    const categories = await prisma.categoryEvent.findMany({
+      orderBy: { id: "asc" }
+    });
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ message: "Gagal mengambil data kategori", error });
+  }
 };
 
-// menyimpan data category baru
-export const createCategory = (req: Request, res: Response) => {
+// CREATE
+export const createCategory = async (req: Request, res: Response) => {
   try {
-    const { nama } = req.body as CreateCategoryBody;
+    const { nama } = req.body;
+    if (!nama) return res.status(400).json({ message: "nama wajib diisi" });
 
-    if (!nama) {
-      return res.status(400).json({ message: "nama wajib diisi" });
-    }
-
-    const newCategory: Category = {
-      id: categories.length + 1,
-      nama,
-    };
-
-    categories.push(newCategory);
+    const newCategory = await prisma.categoryEvent.create({
+      data: { nama }
+    });
     return res.status(201).json(newCategory);
   } catch (error) {
     return res.status(500).json({ message: "Terjadi kesalahan", error });
   }
 };
 
-// menampilkan category berdasarkan id
-export const getCategoryById = (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  const category = categories.find((c) => c.id === id);
+// GET BY ID
+export const getCategoryById = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const category = await prisma.categoryEvent.findUnique({ where: { id } });
 
-  if (!category) {
-    return res.status(404).json({ message: "Kategori tidak ditemukan" });
+    if (!category) return res.status(404).json({ message: "Kategori tidak ditemukan" });
+    return res.json(category);
+  } catch (error) {
+    return res.status(500).json({ message: "Terjadi kesalahan", error });
   }
-
-  return res.json(category);
 };
 
-// mengupdate data kategori berdasarkan id
-export const updateCategoryById = (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  const index = categories.findIndex((c) => c.id === id);
+// UPDATE BY ID
+export const updateCategoryById = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const { nama } = req.body;
 
-  if (index === -1) {
-    return res.status(404).json({ message: "Kategori tidak ditemukan" });
+    if (!nama) return res.status(400).json({ message: "nama wajib diisi" });
+
+    const updated = await prisma.categoryEvent.update({
+      where: { id },
+      data: { nama }
+    });
+    return res.json(updated);
+  } catch (error) {
+    return res.status(404).json({ message: "Kategori tidak ditemukan atau gagal diupdate", error });
   }
-
-  const { nama } = req.body as CreateCategoryBody;
-
-  if (!nama) {
-    return res.status(400).json({ message: "nama wajib diisi" });
-  }
-
-  categories[index] = {
-    id: categories[index]!.id,
-    nama,
-  };
-  return res.json(categories[index]);
 };
 
-// menghapus data category berdasarkan id
-export const deleteCategoryById = (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  const index = categories.findIndex((c) => c.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({ message: "Kategori tidak ditemukan" });
+// DELETE BY ID
+export const deleteCategoryById = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const removed = await prisma.categoryEvent.delete({ where: { id } });
+    return res.json(removed);
+  } catch (error) {
+    return res.status(404).json({ message: "Kategori tidak ditemukan atau gagal dihapus", error });
   }
-
-  const removed = categories.splice(index, 1)[0];
-  return res.json(removed);
 };
-
-
