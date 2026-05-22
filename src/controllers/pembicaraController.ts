@@ -52,16 +52,17 @@ export const updatePembicaraById = async (req: Request, res: Response) => {
     });
     return res.json(updated);
   } catch (error) {
-    return res.status(404).json({ message: "Pembicara tidak ditemukan", error });
+    return res.status(404).json({ message: "Pembicara tidak ditemukan atau data tidak valid", error });
   }
 };
 
-// DELETE
+// DELETE - FIXED HERE
 export const deletePembicaraById = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
-    const removed = await prisma.prisma.pembicara.delete({ where: { id } });
-    return res.json(removed);
+    // Hapus satu kata "prisma." agar menjadi prisma.pembicara.delete
+    const removed = await prisma.pembicara.delete({ where: { id } });
+    return res.json({ message: "Data berhasil dihapus", removed });
   } catch (error) {
     return res.status(404).json({ message: "Pembicara tidak ditemukan", error });
   }
